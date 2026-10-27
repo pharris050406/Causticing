@@ -124,8 +124,8 @@ int main() {
         expect_throw("all-black image", [] { load_pgm("t_black.pgm"); });
 
         // --- your real image, if it's in this directory ---
-        if (std::ifstream("target.pgm")) {
-            Image t = load_pgm("target.pgm");
+        if (std::ifstream("images/target.pgm")) {
+            Image t = load_pgm("images/target.pgm");
             std::cout << "target.pgm: " << t.width << "x" << t.height << '\n';
             check("target.pgm pixel count", t.densities.size(), t.width * t.height);
             check("target.pgm mean density", mean_density(t), 1.0);
