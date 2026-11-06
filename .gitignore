@@ -1,0 +1,5 @@
+build/
+bin/
+out/
+.direnv/
+t_*.pgm

@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <format>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,22 @@ inline double area(const Polygon &polygon) {
   }
 
   return sum / 2;
+}
+
+inline Vec2D centroid(const Polygon& polygon){
+	std::size_t num_vertices = polygon.size();
+	if(num_vertices < 3){
+		throw std::runtime_error("centroid of empty polygon");
+	}
+	double x = 0;
+	double y = 0;
+	for(size_t i = 0; i < num_vertices; i++){
+		x+=((polygon[i].x + polygon[(i+1)%num_vertices].x)*(polygon[i].x * polygon[(i+1)%num_vertices].y - polygon[(i+1)%num_vertices].x * polygon[i].y));
+		y+=((polygon[i].y + polygon[(i+1)%num_vertices].y)*(polygon[i].x * polygon[(i+1)%num_vertices].y - polygon[(i+1)%num_vertices].x * polygon[i].y));
+	}
+	x/=(area(polygon)*6);
+	y/=(area(polygon)*6);
+	return Vec2D{x,y};
 }
 
 inline Vec2D find_intersection(const Vec2D &start, const Vec2D &end,
