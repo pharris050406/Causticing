@@ -14,10 +14,11 @@
 #include <vector>
 #include "image.hpp"
 #include "draw.hpp"
+#include "surface.hpp"
 int main(){
 	try{
 	double step = 0.02;
-	int num_sites = 600;
+	int num_sites = 400;
 	bool stuck = false;
 
 	InitWindow(800, 800, "caustics");

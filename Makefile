@@ -3,7 +3,8 @@ CXXFLAGS = -std=c++20 -Wall -Wextra -Isrc -I/usr/local/include
 LDFLAGS  = -L/usr/local/lib -lraylib
 DEBUG    = -g -fsanitize=address,undefined
 HEADERS  = src/geometry.hpp src/image.hpp src/transport.hpp \
-           src/distributions.hpp src/utils.hpp src/draw.hpp
+           src/distributions.hpp src/utils.hpp src/draw.hpp \
+		   src/surface.hpp src/raytrace.hpp
 
 run: build/relax
 	./build/relax

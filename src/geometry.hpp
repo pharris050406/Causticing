@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstddef>
 #include <format>
 #include <stdexcept>
@@ -16,10 +17,54 @@ struct Vec2D {
     return {x - other.x, y - other.y};
   }
   Vec2D operator*(double scalar) const { return {x * scalar, y * scalar}; }
-  double dot(const Vec2D &vec) const { return x * vec.x + y * vec.y; }
+  double dot(const Vec2D &vec) const {
+	  return x * vec.x + y * vec.y;
+  }
 
   std::string toString() const { return std::format("({}, {})", x, y); }
 };
+
+struct Vec3D{
+	double x;
+	double y;
+	double z;
+	
+	Vec3D operator+(const Vec3D& other) const {
+		return {x+other.x, y+other.y, z+other.z};
+	}
+
+	Vec3D operator-(const Vec3D &other) const {
+		return {x - other.x, y - other.y, z - other.z};
+	}
+	Vec3D operator*(double scalar) const {
+		return {x * scalar, y * scalar, z * scalar};
+	}
+	Vec3D operator/(double scalar) const {
+		return {x / scalar, y / scalar, z / scalar};
+	}
+	Vec3D cross(const Vec3D& b) const {
+		return Vec3D{y*b.z - z*b.y, z*b.x - x*b.z, x*b.y - y*b.x};
+	};
+	double dot(const Vec3D& b) const{
+		return x*b.x + y*b.y + z*b.z;
+	};
+	double length() const{
+		return std::sqrt(std::pow(x, 2) + std::pow(y, 2) + std::pow(z,2));
+	};
+	Vec3D normalized(){
+		return Vec3D{x,y,z}/Vec3D{x,y,z}.length();
+	}
+    std::string toString() const { return std::format("({}, {}, {})", x, y, z); }
+};
+// the refractive index is only of the material, since for air it's basically 1
+inline Vec3D normal_to_target(Vec2D site, Vec2D target, double distance, double refIndex){
+	Vec3D d_T = Vec3D{target.x - site.x, target.y - site.y, distance}.normalized();
+	// vector representing the incoming direction of the ray through the glass.
+	// aka up is through the glass
+	Vec3D d_I = Vec3D{0,0,1}.normalized();
+	return Vec3D (d_I*refIndex - d_T)/(d_I*refIndex - d_T).length();
+}
+
 
 struct HalfPlane {
   Vec2D normal;

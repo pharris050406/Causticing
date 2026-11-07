@@ -1,5 +1,7 @@
 #include "geometry.hpp"
 #include "distributions.hpp"
+#include "surface.hpp"
+#include "raytrace.hpp"
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -52,6 +54,64 @@ void test_partition() {
     check("partition total area", total, 1.0);
 }
 
+void test_surface() {
+    const int k = 20;
+    const double a = 1.0 / k, PI = 3.14159265358979323846;
+
+    // 1. flat normals -> flat surface
+    std::vector<Vec3D> flat(k * k, Vec3D{0, 0, 1});
+    std::vector<double> h0 = integrate_heights(k, flat);
+    double worst0 = 0;
+    for (double h : h0) worst0 = std::fmax(worst0, std::fabs(h));
+    check("surface flat", worst0, 0);
+
+    // 2. constant slope p = 0.1 -> a plane rising 0.1*a per column
+    std::vector<Vec3D> tilt(k * k, Vec3D{-0.1, 0, 1}.normalized());
+    std::vector<double> h1 = integrate_heights(k, tilt);
+	check("surface plane step", std::fabs((h1[1*k + 3] - h1[0*k + 3]) - 0.1*a) < 1e-9, 1);
+    // 3. round trip: known surface -> exact normals -> integrate -> same surface?
+    auto f = [&](double x, double y) { return 0.01 * std::sin(2*PI*x) * std::sin(2*PI*y); };
+    std::vector<Vec3D> nrm; std::vector<double> exact;
+    for (int i = 0; i < k; i++)
+        for (int j = 0; j < k; j++) {
+            double x = (i + 0.5) * a, y = (j + 0.5) * a;
+            double p = 0.01 * 2*PI * std::cos(2*PI*x) * std::sin(2*PI*y);
+            double q = 0.01 * 2*PI * std::sin(2*PI*x) * std::cos(2*PI*y);
+            nrm.push_back(Vec3D{-p, -q, 1}.normalized());
+            exact.push_back(f(x, y));
+        }
+    std::vector<double> h2 = integrate_heights(k, nrm);
+    double mean = 0; for (double e : exact) mean += e; mean /= exact.size();
+    double worst2 = 0;
+    for (std::size_t n = 0; n < h2.size(); n++) worst2 = std::fmax(worst2, std::fabs(h2[n] - (exact[n] - mean)));
+    std::cout << "surface round trip: max error " << worst2 << " (surface amplitude 0.01)\n";
+    check("surface round trip < 1e-4", worst2 < 1e-4, 1);
+}
+void test_raytrace() {
+    const double eta = 1.49, D = 5;
+    bool tir = false;
+    const Vec3D up{0, 0, 1};
+
+    // 1. flat surface: the ray passes straight through
+    Vec3D t0 = refract(up, up, eta, tir);
+    check("refract flat: no TIR", tir, 0);
+    check("refract flat x", t0.x, 0); check("refract flat y", t0.y, 0); check("refract flat z", t0.z, 1);
+
+    // 2. inverse of normal_to_target: the tilt it computes must send the ray to the target
+    Vec3D n = normal_to_target({0.5, 0.5}, {0.7, 0.5}, D, eta);
+    Vec3D t1 = refract(up, n, eta, tir);
+    check("refract inverse: no TIR", tir, 0);
+    check("refract inverse unit length", t1.length(), 1);
+    check("refract inverse y", t1.y, 0);
+    check("refract inverse aims at target", t1.x / t1.z, 0.2 / D);
+
+    // 3. steep surface: the ray can't get out (total internal reflection)
+    Vec3D steep = Vec3D{1, 0, 0.5}.normalized();
+    refract(up, steep, eta, tir);
+    check("refract steep: TIR", tir, 1);
+}
+
+
 int main() {
     // area
     check("unit square",      area({{0,0}, {1,0}, {1,1}, {0,1}}),  1.0);
@@ -85,4 +145,35 @@ int main() {
     test_grid(4);
     test_grid(16);
     test_partition();
+	check("dot", Vec3D{1,2,3}.dot(Vec3D{4,5,6}), 32);
+	Vec3D cross1 = Vec3D{1,0,0}.cross(Vec3D{0,1,0});
+	check("cross x", cross1.x, 0); check("cross y", cross1.y, 0); check("cross z", cross1.z, 1);
+
+	Vec3D cross2 = Vec3D{0,1,0}.cross(Vec3D{1,0,0});
+	check("cross reversed z", cross2.z, -1);
+	check("length", Vec3D{3,4,12}.length(), 13);
+	check("normalized z", Vec3D{0,0,5}.normalized().z, 1);
+	// normal_to_target: screen at D = 5, acrylic eta = 1.49
+	const double D = 5, eta = 1.49;
+
+	Vec3D n0 = normal_to_target({0.5, 0.5}, {0.5, 0.5}, D, eta);      // no displacement: flat
+	check("snell flat x", n0.x, 0); check("snell flat y", n0.y, 0); check("snell flat z", n0.z, 1);
+
+	Vec3D np = normal_to_target({0.5, 0.5}, {0.7, 0.5}, D, eta);      // light sent toward +x
+	check("snell unit length", np.length(), 1);
+	check("snell +x: n_y is 0", np.y, 0);
+	check("snell +x: n_x negative", np.x < 0, 1);                  // true counts as 1
+
+	Vec3D nm = normal_to_target({0.5, 0.5}, {0.3, 0.5}, D, eta);      // mirror image: toward -x
+	check("snell mirror x", nm.x, -np.x);
+	check("snell mirror z", nm.z, np.z);
+
+	// Snell's law itself: eta * sin(angle in) = sin(angle out), with sin = |n x d|
+	Vec3D dI{0, 0, 1};
+	Vec3D dT = Vec3D{0.2, 0, D}.normalized();
+	check("snell's law", eta * np.cross(dI).length(), np.cross(dT).length());
+
+	test_surface();
+	test_raytrace();
 }
+
