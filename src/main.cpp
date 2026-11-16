@@ -15,18 +15,21 @@
 #include "image.hpp"
 #include "draw.hpp"
 #include "surface.hpp"
+#include "raytrace.hpp"
 int main(){
 	try{
 	double step = 0.02;
-	int num_sites = 400;
 	bool stuck = false;
+
+	int num_sites = 400;
+	int k = static_cast<int>(std::sqrt(num_sites));   // grid side length: k x k sites
 
 	InitWindow(800, 800, "caustics");
 	SetTargetFPS(60);
 
 	DensityMap main_image = load_pgm("images/cat.pgm");
 
-	std::vector<Vec2D> sites = dist::jittered_grid(static_cast<int>(sqrt(num_sites)), 0);
+	std::vector<Vec2D> sites = dist::jittered_grid(k, 0);
 	std::vector<double> weights(sites.size());
 	std::vector<double> sources = source_masses(sites);
 	std::vector<double> g = mismatch(sites, weights, main_image, sources);
@@ -91,13 +94,25 @@ int main(){
 		}
 
 		if(done && targets.empty()){
+			// 1. targets: where each site's light should land
 			for(size_t i = 0; i < drawing_cells.size(); i++){
 				if(drawing_cells[i].size() < 3){
 					targets.push_back(sites[i]);
 				}else{
 					targets.push_back(weighted_centroid(drawing_cells[i], main_image));
 				}
-			}
+			}   // <- this brace was missing
+
+			// 2. normals -> 3. surface -> 4. trace the light through it
+			const double D = 5, eta = 1.49;
+			std::vector<Vec3D> normals;
+			for (std::size_t i = 0; i < sites.size(); i++)
+				normals.push_back(normal_to_target(sites[i], targets[i], D, eta));
+
+			std::vector<double> heights = integrate_heights(k, normals);
+			std::vector<double> caustic = trace_caustic(k, heights, D, eta, 1000, 128);
+			write_pgm("out/caustic.pgm", caustic, 128, 128);
+			std::cout << "wrote out/caustic.pgm\n";
 		}
 
 		BeginDrawing();
@@ -106,7 +121,7 @@ int main(){
 			for(size_t i = 0; i < targets.size(); i++){
 				draw_arrow(to_screen(sites[i]), to_screen(targets[i]), 5, RED);
 			}
-				
+
 		EndDrawing();
 	}
 

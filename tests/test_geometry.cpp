@@ -109,6 +109,32 @@ void test_raytrace() {
     Vec3D steep = Vec3D{1, 0, 0.5}.normalized();
     refract(up, steep, eta, tir);
     check("refract steep: TIR", tir, 1);
+
+	        const int k = 5; const double a = 1.0 / k;
+        double z; Vec3D nn;
+
+        // flat surface
+        std::vector<double> flat(k * k, 0.0);
+        surface_at(k, flat, 0.43, 0.61, z, nn);
+        check("surface_at flat z", z, 0); check("surface_at flat nz", nn.z, 1);
+
+        // tilted plane h = 0.1 * x: linear, so every triangle reproduces it exactly
+        std::vector<double> plane;
+        for (int i = 0; i < k; i++) for (int j = 0; j < k; j++) plane.push_back(0.1 * (i + 0.5) * a);
+        surface_at(k, plane, 0.43, 0.61, z, nn);           // one point
+        check("surface_at plane z", z, 0.1 * 0.43);
+        check("surface_at plane nx", nn.x, Vec3D{-0.1, 0, 1}.normalized().x);
+        surface_at(k, plane, 0.47, 0.67, z, nn);           // another point, the other triangle
+        check("surface_at plane z (2)", z, 0.1 * 0.47);
+
+        // outside the mesh (in the half-cell border)
+        check("surface_at outside", surface_at(k, flat, 0.02, 0.5, z, nn), 0);
+		const int p = 10, M = 400, res = 40;
+		std::vector<double> test(p * p, 0.0);
+		std::vector<double> img = trace_caustic(p, test, 5, 1.49, M, res);
+		double total = 0; for (double c : img) total += c;
+		check("trace flat: every ray lands", total, double(M) * M);
+		check("trace flat: uniform", img[20 * res + 20], img[10 * res + 25]);
 }
 
 
